@@ -58,39 +58,6 @@ int
 mon_backtrace(int argc, char **argv, struct Trapframe *tf)
 {
 	// Your code here.
-
-	//lab1 e11 start
-	uint32_t* ebp = (uint32_t*)read_ebp();
-	struct Eipdebuginfo info;
-	char fun_name[32] = "";
-	int i = 0;
-	while(ebp != NULL)
-	{
-		//cprintf("ebp %x eip %x args %08x\n", ebp, *(ebp+1), *(ebp+2));
-		cprintf("ebp %x eip %x args %08x\n",ebp,*(ebp + 1),*(ebp+2));
-		//cprintf("\n");
-
-		//debuginfo_eip(*(ebp+1),&debug_info);
-		// for(i = 0;i < debug_info.eip_fn_namelen;i++){
-		// 	fun_name[i] = debug_info.eip_fn_name[i];
-		// }
-		// fun_name[i] = '\0';
-		// cprintf("sybs %s \n",fun_name);
-		// cprintf("%d \n",debug_info.eip_line);
-
-if(debuginfo_eip(*(ebp+1), &info) == 0)
-		{
-			cprintf("%s:%d: ", info.eip_file, info.eip_line);
-			cprintf("%.*s", info.eip_fn_namelen, info.eip_fn_name);
-			cprintf("+%d\n", (*(ebp+1)) - (uint32_t)info.eip_fn_addr);
-		}
-		else
-			cprintf("Error happened when reading symbol table\n");
-
-		ebp = (uint32_t*)(*ebp);
-	}
-	//lab1 e11 end
-	
 	return 0;
 }
 
