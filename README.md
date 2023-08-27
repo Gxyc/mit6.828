@@ -5,7 +5,7 @@ https://pdos.csail.mit.edu/6.828/2018/
 vmware   
 ubuntu    
 qemu 虚拟机 跑kernel  
-python3 跑测试评分脚本  
+python3 跑测试评分脚本 实验代码默认使用python(.grade-lab文件中修改)   
 
 ## lab1 
 引导   
@@ -33,4 +33,10 @@ kernel/entry.s
 
 ## lab2
 内存管理
+inc/memlayout.h  -  kern/pmap.c  
 
+### inc/memlayout.h
+内存布局
+
+### kern/pmap.c
+页映射接口-待实现
