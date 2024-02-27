@@ -40,14 +40,3 @@ inc/memlayout.h  -  kern/pmap.c
 
 ### kern/pmap.c
 页映射接口-待实现
-
-### 坑
-check_page_free_list()中  
-先执行*tp[pagetype] = pp;   tp[pagetype] = &pp->pp_link;  
-将低地址(pdx < pdx_limit)的页放在链头 高地址页链在低地址链后  
-调换了页表顺序  
-再执行memset(page2kva(pp), 0x97, 128)中  
-低地址的page2kva(pp) 与 高地址pp值冲突  
-0xf0155078(冲突的地址 可能不固定)  
-低地址遍历时踩到高地址pp中存的链结构信息 导致链断   
-不改check_page_free_list的情况下无法通过  
