@@ -9,6 +9,14 @@
 #include <kern/env.h>
 #include <kern/syscall.h>
 
+#define DEBUG 1
+#if DEBUG
+#define DEBUG_LOG(format,arg...) \
+cprintf("[DEBUG][T]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
+#else
+#define DEBUG_LOG(format,arg...)
+#endif
+
 static struct Taskstate ts;
 
 /* For debugging, so print_trapframe can distinguish between printing
@@ -65,7 +73,41 @@ trap_init(void)
 	extern struct Segdesc gdt[];
 
 	// LAB 3: Your code here.
+	
+	void divide_handler();
+	void debug_handler();
+	void breakpoint_handler();
+	void overflow_handler();
+	void bounds_handler();
+	void illop_handler();
+	void device_handler();
+	void doubleflt_handler();
+	void tss_handler();
+	void segmentnp_handler();
+	void stackexp_handler();
+	void gprotectflt_handler();
+	void pagefault_handler();
+	void floaterr_handler();
 
+	void syscall_handler();
+
+	SETGATE(idt[T_DIVIDE],1,GD_KT,divide_handler,0);
+	SETGATE(idt[T_DEBUG],1,GD_KT,debug_handler,3);
+	SETGATE(idt[T_BRKPT],1,GD_KT,breakpoint_handler,3);
+	SETGATE(idt[T_OFLOW],1,GD_KT,overflow_handler,0);
+	SETGATE(idt[T_BOUND],1,GD_KT,bounds_handler,0);
+	SETGATE(idt[T_ILLOP],1,GD_KT,illop_handler,0);
+	SETGATE(idt[T_DEVICE],1,GD_KT,device_handler,0);
+	SETGATE(idt[T_DBLFLT],1,GD_KT,doubleflt_handler,0);
+	SETGATE(idt[T_TSS],1,GD_KT,tss_handler,0);
+	SETGATE(idt[T_SEGNP],1,GD_KT,segmentnp_handler,0);
+	SETGATE(idt[T_STACK],1,GD_KT,stackexp_handler,0);
+	SETGATE(idt[T_GPFLT],1,GD_KT,gprotectflt_handler,0);
+	SETGATE(idt[T_PGFLT],1,GD_KT,pagefault_handler,0);
+	SETGATE(idt[T_FPERR],1,GD_KT,floaterr_handler,0);
+
+	SETGATE(idt[T_SYSCALL],1,GD_KT,syscall_handler,3);
+	
 	// Per-CPU setup 
 	trap_init_percpu();
 }
@@ -142,9 +184,27 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
+	DEBUG_LOG("trap count[%d]\n",tf->tf_trapno);
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
-
+	switch (tf->tf_trapno)
+	{
+	case T_PGFLT:
+		page_fault_handler(tf);
+		return;
+	case T_BRKPT:
+		monitor(tf);
+		return;
+	case T_SYSCALL:
+		print_regs(&tf->tf_regs);
+		tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax,
+			tf->tf_regs.reg_edx,tf->tf_regs.reg_ecx,
+			tf->tf_regs.reg_ebx,tf->tf_regs.reg_edi,
+			tf->tf_regs.reg_esi);
+		return;
+	default:
+		break;
+	}
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
 	if (tf->tf_cs == GD_KT)
@@ -205,7 +265,9 @@ page_fault_handler(struct Trapframe *tf)
 	// Handle kernel-mode page faults.
 
 	// LAB 3: Your code here.
-
+	if((tf->tf_cs & 3) == 0){
+		panic("page fault in kernel \n");
+	}
 	// We've already handled kernel-mode exceptions, so if we get here,
 	// the page fault happened in user mode.
 

@@ -180,6 +180,8 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// Make 'envs' point to an array of size 'NENV' of 'struct Env'.
 	// LAB 3: Your code here.
+	envs = (struct Env*)boot_alloc(sizeof(struct Env) * NENV);
+	memset(envs, 0, NENV * sizeof(struct Env));
 
 	//////////////////////////////////////////////////////////////////////
 	// Now that we've allocated the initial kernel data structures, we set
@@ -211,6 +213,8 @@ mem_init(void)
 	//    - the new image at UENVS  -- kernel R, user R
 	//    - envs itself -- kernel RW, user NONE
 	// LAB 3: Your code here.
+	cprintf("env_size[0x%x] ptsize[0x%x]\n",sizeof(struct Env) * NENV,PTSIZE);
+	boot_map_region(kern_pgdir,UENVS,PTSIZE,PADDR(envs),PTE_U);
 
 	//////////////////////////////////////////////////////////////////////
 	// Use the physical memory that 'bootstack' refers to as the kernel
@@ -327,6 +331,13 @@ page_init(void)
 		if(k_addr >= pages && k_addr <= pages + npages){
 			DEBUG_LOG("i[%d] i_k_addr[0x%08x]\n",i,k_addr);
 			//物理页管理信息结构 只读 不可申请覆盖此区域
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+			continue;
+		}
+		if((struct Env*)k_addr >= envs && (struct Env*)k_addr <= envs + NENV){
+			DEBUG_LOG("i[%d] i_k_addr[0x%08x]\n",i,k_addr);
+			//用户空间管理信息结构 只读 不可申请覆盖此区域
 			pages[i].pp_ref = 1;
 			pages[i].pp_link = NULL;
 			continue;
@@ -453,6 +464,9 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	//cprintf("[debug][%d] %x %x\n",__LINE__,KADDR(PTE_ADDR(*pde_p) + PTX(va)),a);
 	//cprintf("[d][%d] *pde0x%x pte0x%x kpte0x%x\n",__LINE__,*pde_p,PTE_ADDR(*pde_p),KADDR(PTE_ADDR(*pde_p)));
 	//cprintf("[debug][%d] re[0x%x]\n",__LINE__,(pte_t*)KADDR(PTE_ADDR(*pde_p)) + PTX(va));
+	if(0 == create){
+		DEBUG_LOG("pde_p[0x%08x][0x%08x] pte_addr[0x%08x] k_addr[0x%08x] re[0x%08x]\n",pde_p,*pde_p,PTE_ADDR(*pde_p),KADDR(PTE_ADDR(*pde_p)),(pte_t*)KADDR(PTE_ADDR(*pde_p)) + PTX(va));
+	}
 	return (pte_t*)KADDR(PTE_ADDR(*pde_p)) + PTX(va);
 
 }
@@ -523,7 +537,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 		return -E_NO_MEM;
 	}
 	pp->pp_ref++;
-
+	DEBUG_LOG("\n");
 	//cprintf("[pd] %x\n",*pgdir);
 	//cprintf("[debug][%d] %x pte[0x%x] p[%d]\n",__LINE__,pp,pte,(*pte) & PTE_P);
 	if((*pte) & PTE_P){
@@ -532,7 +546,7 @@ page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 	physaddr_t pa = page2pa(pp);
 	*pte = pa | perm | PTE_P;
 	pgdir[PDX(va)] |= perm;
-	
+	DEBUG_LOG("pte[0x%08x][0x%08x] pgdir_pdx[0x%08x]\n",pte,*pte,pgdir[PDX(va)]);
 	return 0;
 }
 
@@ -634,6 +648,20 @@ int
 user_mem_check(struct Env *env, const void *va, size_t len, int perm)
 {
 	// LAB 3: Your code here.
+	DEBUG_LOG(" va[0x%08x] len[%x]\n",va,len);
+	void* addr = (void*)va;
+	void* begin = ROUNDDOWN(addr,PGSIZE);
+	void* end = ROUNDUP(addr + len,PGSIZE);
+
+	while(begin < end){
+		pte_t *pte = pgdir_walk(env->env_pgdir,begin,0);
+		DEBUG_LOG("pte[0x%08x][0x%08x]\n",pte,*pte);
+		if((uint32_t)begin >= ULIM || !pte || !((*pte) & PTE_P) || ((*pte) & perm) != perm){
+			user_mem_check_addr = (uintptr_t)(begin < va ? va : begin);
+			return -E_FAULT;
+		}
+		begin += PGSIZE;
+	}
 
 	return 0;
 }
