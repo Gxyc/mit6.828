@@ -10,15 +10,6 @@
 #include <kern/kclock.h>
 #include <kern/env.h>
 
-
-#define DEBUG 0
-#if DEBUG
-#define DEBUG_LOG(format,arg...) \
-cprintf("[DEBUG][P]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
-#else
-#define DEBUG_LOG(format,arg...)
-#endif
-
 // These variables are set by i386_detect_memory()
 size_t npages;			// Amount of physical memory (in pages)
 static size_t npages_basemem;	// Amount of base memory (in pages)
@@ -130,15 +121,6 @@ boot_alloc(uint32_t n)
 //
 // From UTOP to ULIM, the user is allowed to read but not write.
 // Above ULIM the user cannot read or write.
-
-void page_print(void){
-	struct PageInfo * p_t = page_free_list;
-	while(p_t){
-		cprintf("[p_t][0x%08x]\t",p_t);
-		p_t = p_t->pp_link;
-	}
-	cprintf("\n-------------------------------------------------------------------------\n");
-}
 void
 mem_init(void)
 {
@@ -260,7 +242,6 @@ mem_init(void)
 
 	// Some more checks, only possible after kern_pgdir is installed.
 	check_page_installed_pgdir();
-	//page_print();
 }
 
 // --------------------------------------------------------------
@@ -325,23 +306,7 @@ page_init(void)
 	}
 	//cprintf("[debug][ad] x%x %d\n",page_free_list,i);
 	//cprintf("[debug] x%x %d\n",page_free_list,i);
-	DEBUG_LOG("page_start[0x%x] page_end[0x%x] n[%x]\n",pages,pages + npages,npages);
 	for (i = first_free_page+1; i < npages; i++) {
-		struct PageInfo * k_addr = (struct PageInfo *)((i << PGSHIFT) + KERNBASE);
-		if(k_addr >= pages && k_addr <= pages + npages){
-			DEBUG_LOG("i[%d] i_k_addr[0x%08x]\n",i,k_addr);
-			//物理页管理信息结构 只读 不可申请覆盖此区域
-			pages[i].pp_ref = 1;
-			pages[i].pp_link = NULL;
-			continue;
-		}
-		if((struct Env*)k_addr >= envs && (struct Env*)k_addr <= envs + NENV){
-			DEBUG_LOG("i[%d] i_k_addr[0x%08x]\n",i,k_addr);
-			//用户空间管理信息结构 只读 不可申请覆盖此区域
-			pages[i].pp_ref = 1;
-			pages[i].pp_link = NULL;
-			continue;
-		}
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		//cprintf("[debug] p_%x  [%d]\t",page_free_list,dn2++);
@@ -367,7 +332,6 @@ page_init(void)
 struct PageInfo *
 page_alloc(int alloc_flags)
 {
-	DEBUG_LOG("FLAG[%d] page_f_l[0x%08x]\n",alloc_flags,page_free_list);
 	// Fill this function in
 	if(NULL == page_free_list){
 		return NULL;
@@ -442,9 +406,11 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 {
 	// Fill this function in
 	pde_t* pde_p = pgdir + PDX(va);
-	
-	DEBUG_LOG("pgdir[0x%08x] va[0x%08x] create[%d]\n",pgdir,va,create);
-	
+	//cprintf("[debug][%d] va%x pdx%x pd%x pde%x P%d\n",__LINE__,va,PDX(va),pgdir,pde_p,*pde_p & PTE_P);
+	// pde_t* x = (pde_t*)0xf011a004;
+	// pde_t* x1 = (pde_t*)0xf011a000;
+	// cprintf("[d] x%x x1%x\n",x,x1);
+	// cprintf("[d][m] %d %d\n",*x&PTE_P,*x1&PTE_P);
 	if(!(*pde_p & PTE_P)){
 		//cprintf("[d] create pde 0x%x\n",pde_p);
 		if(create){
@@ -531,7 +497,6 @@ int
 page_insert(pde_t *pgdir, struct PageInfo *pp, void *va, int perm)
 {
 	// Fill this function in
-	DEBUG_LOG("pgdir[0x%08x] pp[0x%08x] va[0x%08x] perm[%d]\n",pgdir,pp,va,perm);
 	pte_t *pte = pgdir_walk(pgdir,va,1);
 	if(pte == NULL){
 		return -E_NO_MEM;
@@ -719,9 +684,9 @@ check_page_free_list(bool only_low_memory)
 
 	// if there's a page that shouldn't be on the free list,
 	// try to make sure it eventually causes trouble.
-	for (pp = page_free_list; pp; pp = pp->pp_link)
-		if (PDX(page2pa(pp)) < pdx_limit)
-			memset(page2kva(pp), 0x97, 128);
+	// for (pp = page_free_list; pp; pp = pp->pp_link)
+	// 	if (PDX(page2pa(pp)) < pdx_limit)
+	// 		memset(page2kva(pp), 0x97, 128);
 
 	first_free_page = (char *) boot_alloc(0);
 	for (pp = page_free_list; pp; pp = pp->pp_link) {
@@ -1097,7 +1062,3 @@ check_page_installed_pgdir(void)
 
 	cprintf("check_page_installed_pgdir() succeeded!\n");
 }
-
-// void* get_page_free_list_addr(){
-// 	return &page_free_list;
-// }
