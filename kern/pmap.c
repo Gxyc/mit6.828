@@ -10,6 +10,14 @@
 #include <kern/kclock.h>
 #include <kern/env.h>
 
+#define DEBUG 0
+#if DEBUG
+#define DEBUG_LOG(format,arg...) \
+cprintf("[DEBUG][P]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
+#else
+#define DEBUG_LOG(format,arg...)
+#endif
+
 // These variables are set by i386_detect_memory()
 size_t npages;			// Amount of physical memory (in pages)
 static size_t npages_basemem;	// Amount of base memory (in pages)
