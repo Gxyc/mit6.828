@@ -5,6 +5,7 @@
 #include <inc/error.h>
 #include <inc/string.h>
 #include <inc/assert.h>
+#include <inc/debug.h>
 
 #include <kern/pmap.h>
 #include <kern/kclock.h>
@@ -12,8 +13,8 @@
 #include <kern/cpu.h>
 
 
-#define DEBUG 0
-#if DEBUG
+
+#if DEBUG_P
 #define DEBUG_LOG(format,arg...) \
 cprintf("[DEBUG][P]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
 #else
@@ -65,6 +66,9 @@ i386_detect_memory(void)
 
 	cprintf("Physical memory: %uK available, base = %uK, extended = %uK\n",
 		totalmem, basemem, totalmem - basemem);
+		
+	DEBUG_LOG("Physical memory: %xK available, base = %xK, extended = %xK\n",
+		totalmem, basemem, totalmem - basemem);
 }
 
 
@@ -106,6 +110,7 @@ boot_alloc(uint32_t n)
 	// to any kernel code or global variables.
 	if (!nextfree) {
 		extern char end[];
+		DEBUG_LOG("END_ADDR[0x%x]\n",end);
 		nextfree = ROUNDUP((char *) end, PGSIZE);
 	}
 
@@ -229,10 +234,10 @@ mem_init(void)
 	// we just set up the mapping anyway.
 	// Permissions: kernel RW, user NONE
 	// Your code goes here:
+	boot_map_region(kern_pgdir, KERNBASE, 0xffffffff - KERNBASE, 0, PTE_W);
 
 	// Initialize the SMP-related parts of the memory map
 	mem_init_mp();
-	boot_map_region(kern_pgdir, KERNBASE, 0xffffffff - KERNBASE, 0, PTE_W);
 	// Check that the initial page directory has been set up correctly.
 	check_kern_pgdir();
 
@@ -280,7 +285,11 @@ mem_init_mp(void)
 	//     Permissions: kernel RW, user NONE
 	//
 	// LAB 4: Your code here:
-
+	int i = 0;
+	for(i = 0;i < NCPU;i++){
+		uintptr_t kstacktop_i = KSTACKTOP - i * (KSTKSIZE + KSTKGAP);
+		boot_map_region(kern_pgdir,kstacktop_i-KSTKSIZE,KSTKSIZE,PADDR(percpu_kstacks[i]),PTE_W);
+	}
 }
 
 // --------------------------------------------------------------
@@ -327,6 +336,11 @@ page_init(void)
 	int dn2=0;
 	//cprintf("[debug][ad] x%x %d\n",page_free_list,i);
 	for(i = 1;i < npages_basemem;i++){
+		if(i == MPENTRY_PADDR >> PGSHIFT){
+			pages[i].pp_ref = 1;
+			pages[i].pp_link = NULL;
+			continue;
+		}
 		pages[i].pp_ref = 0;
 		pages[i].pp_link = page_free_list;
 		//cprintf("[debug] p_%x  [%d]\t",page_free_list,dn2++);
@@ -388,7 +402,7 @@ page_alloc(int alloc_flags)
 	if(alloc_flags & ALLOC_ZERO){
 		memset(page2kva(result),0,PGSIZE);
 	}
-	//cprintf("[d][%d] re[0x%x]\n",__LINE__,result);
+	DEBUG_LOG("re[0x%x]\n",result);
 	return result;
 }
 
@@ -455,7 +469,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 	// pde_t* x1 = (pde_t*)0xf011a000;
 	// cprintf("[d] x%x x1%x\n",x,x1);
 	// cprintf("[d][m] %d %d\n",*x&PTE_P,*x1&PTE_P);
-	if(!(*pde_p & PTE_P)){
+	if(!((*pde_p) & PTE_P)){
 		//cprintf("[d] create pde 0x%x\n",pde_p);
 		if(create){
 			struct PageInfo* pp = page_alloc(1);
@@ -463,7 +477,7 @@ pgdir_walk(pde_t *pgdir, const void *va, int create)
 				return NULL;
 			}
 			pp->pp_ref++;
-			*pde_p = page2pa(pp) | PTE_P | PTE_U | PTE_W;
+			(*pde_p) = page2pa(pp) | PTE_P | PTE_U | PTE_W;
 		}
 		else{
 			return NULL;
@@ -665,7 +679,21 @@ mmio_map_region(physaddr_t pa, size_t size)
 	// Hint: The staff solution uses boot_map_region.
 	//
 	// Your code here:
-	panic("mmio_map_region not implemented");
+	DEBUG_LOG(" PA[0x%x] n[0x%x]\n",pa,size);
+	
+	void* result = NULL;
+	size = ROUNDUP(pa+size,PGSIZE);
+	pa = ROUNDDOWN(pa,PGSIZE);
+	size -= pa;
+
+	if(base + size >= MMIOLIM){
+		panic("%s memory overflow",__FUNCTION__);
+	}
+	
+	boot_map_region(kern_pgdir,base,size,pa,PTE_PCD|PTE_PWT|PTE_W);
+	base += size;
+	// panic("mmio_map_region not implemented");
+	return (void*)(base - size);
 }
 
 static uintptr_t user_mem_check_addr;

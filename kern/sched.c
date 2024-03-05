@@ -1,9 +1,17 @@
 #include <inc/assert.h>
 #include <inc/x86.h>
+#include <inc/debug.h>
 #include <kern/spinlock.h>
 #include <kern/env.h>
 #include <kern/pmap.h>
 #include <kern/monitor.h>
+
+#if DEBUG_SCHED
+#define DEBUG_LOG(format,arg...) \
+cprintf("[DEBUG][%s]%s <%d>--" format,__FILE__,__FUNCTION__,__LINE__,##arg)
+#else
+#define DEBUG_LOG(format,arg...)
+#endif
 
 void sched_halt(void);
 
@@ -29,7 +37,30 @@ sched_yield(void)
 	// below to halt the cpu.
 
 	// LAB 4: Your code here.
-
+	do{
+		DEBUG_LOG("curenv id[%x]\n",curenv);
+		envid_t cur_eid = curenv ? ENVX(curenv->env_id) + 1 : 0;
+		DEBUG_LOG("\n");
+		for(envid_t i = cur_eid;i < NENV;i++){
+			if(envs[i].env_status == ENV_RUNNABLE){
+				DEBUG_LOG("run [%x]\n",envs[i].env_id);
+				env_run(&envs[i]);
+				break;
+			}
+		}
+		// for(envid_t i = 0;i < cur_eid;i ++){
+		// 	if(envs[i].env_status == ENV_RUNNABLE){
+		// 		DEBUG_LOG("run [%x]\n",envs[i].env_id);
+		// 		env_run(&envs[i]);
+		// 		break;
+		// 	}
+		// }
+		if(curenv && curenv->env_status == ENV_RUNNING){
+			DEBUG_LOG("run [%x]\n",curenv->env_id);
+			env_run(curenv);
+		}
+	}while(0);
+	DEBUG_LOG("\n");
 	// sched_halt never returns
 	sched_halt();
 }

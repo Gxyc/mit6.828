@@ -7,8 +7,17 @@
 #include <inc/mmu.h>
 #include <inc/stdio.h>
 #include <inc/x86.h>
+#include <inc/debug.h>
+
 #include <kern/pmap.h>
 #include <kern/cpu.h>
+
+#if DEBUG_LAPIC
+#define DEBUG_LOG(format,arg...) \
+cprintf("[DEBUG][%s]%s <%d>--" format,__FILE__,__FUNCTION__,__LINE__,##arg)
+#else
+#define DEBUG_LOG(format,arg...)
+#endif
 
 // Local APIC registers, divided by 4 for use as uint32_t[] indices.
 #define ID      (0x0020/4)   // ID
@@ -48,6 +57,8 @@ volatile uint32_t *lapic;
 static void
 lapicw(int index, int value)
 {
+	DEBUG_LOG("addr lapic[0x%x] index[0x%x] l_i[0x%x] size[0x%x]\n",lapic,index,&lapic[index],sizeof(lapic[index]));
+	DEBUG_LOG("lapic0[0x%x]\n",&lapic[0]);
 	lapic[index] = value;
 	lapic[ID];  // wait for write to finish, by reading
 }
@@ -60,11 +71,12 @@ lapic_init(void)
 
 	// lapicaddr is the physical address of the LAPIC's 4K MMIO
 	// region.  Map it in to virtual memory so we can access it.
+	DEBUG_LOG("lapicaddr addr[0x%x]\n",lapicaddr);
 	lapic = mmio_map_region(lapicaddr, 4096);
-
+	DEBUG_LOG("\n");
 	// Enable local APIC; set spurious interrupt vector.
 	lapicw(SVR, ENABLE | (IRQ_OFFSET + IRQ_SPURIOUS));
-
+	DEBUG_LOG("\n");
 	// The timer repeatedly counts down at bus frequency
 	// from lapic[TICR] and then issues an interrupt.  
 	// If we cared more about precise timekeeping,

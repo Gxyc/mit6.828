@@ -1,6 +1,7 @@
 #include <inc/mmu.h>
 #include <inc/x86.h>
 #include <inc/assert.h>
+#include <inc/debug.h>
 
 #include <kern/pmap.h>
 #include <kern/trap.h>
@@ -14,15 +15,15 @@
 #include <kern/cpu.h>
 #include <kern/spinlock.h>
 
-#define DEBUG 1
-#if DEBUG
+
+#if DEBUG_T
 #define DEBUG_LOG(format,arg...) \
 cprintf("[DEBUG][T]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
 #else
 #define DEBUG_LOG(format,arg...)
 #endif
 
-static struct Taskstate ts;
+// static struct Taskstate ts;
 
 /* For debugging, so print_trapframe can distinguish between printing
  * a saved trapframe and printing the current trapframe and print some
@@ -150,18 +151,22 @@ trap_init_percpu(void)
 
 	// Setup a TSS so that we get the right stack
 	// when we trap to the kernel.
-	ts.ts_esp0 = KSTACKTOP;
-	ts.ts_ss0 = GD_KD;
-	ts.ts_iomb = sizeof(struct Taskstate);
+	DEBUG_LOG("\n");
+	thiscpu->cpu_ts.ts_esp0 = KSTACKTOP - cpunum() * (KSTKSIZE + KSTKGAP);
+	thiscpu->cpu_ts.ts_ss0 = GD_KD;
+	DEBUG_LOG("ENV[0x%x]\n",thiscpu->cpu_env);
+	//if(thiscpu->cpu_env != 0){
+		thiscpu->cpu_ts.ts_iomb = sizeof(struct Taskstate);
+	//}
 
 	// Initialize the TSS slot of the gdt.
-	gdt[GD_TSS0 >> 3] = SEG16(STS_T32A, (uint32_t) (&ts),
+	gdt[(GD_TSS0 >> 3) + cpunum()] = SEG16(STS_T32A, (uint32_t) (&(thiscpu->cpu_ts)),
 					sizeof(struct Taskstate) - 1, 0);
-	gdt[GD_TSS0 >> 3].sd_s = 0;
+	gdt[(GD_TSS0 >> 3) + cpunum()].sd_s = 0;
 
 	// Load the TSS selector (like other segment selectors, the
 	// bottom three bits are special; we leave them 0)
-	ltr(GD_TSS0);
+	ltr(GD_TSS0 + (cpunum() << 3));
 
 	// Load the IDT
 	lidt(&idt_pd);
@@ -228,7 +233,7 @@ trap_dispatch(struct Trapframe *tf)
 		monitor(tf);
 		return;
 	case T_SYSCALL:
-		print_regs(&tf->tf_regs);
+		//print_regs(&tf->tf_regs);
 		tf->tf_regs.reg_eax = syscall(tf->tf_regs.reg_eax,
 			tf->tf_regs.reg_edx,tf->tf_regs.reg_ecx,
 			tf->tf_regs.reg_ebx,tf->tf_regs.reg_edi,
@@ -287,7 +292,7 @@ trap(struct Trapframe *tf)
 		// serious kernel work.
 		// LAB 4: Your code here.
 		assert(curenv);
-
+		lock_kernel();
 		// Garbage collect if current enviroment is a zombie
 		if (curenv->env_status == ENV_DYING) {
 			env_free(curenv);
@@ -332,6 +337,7 @@ page_fault_handler(struct Trapframe *tf)
 
 	// LAB 3: Your code here.
 	if((tf->tf_cs & 3) == 0){
+		DEBUG_LOG("addr [0x%x]\n",fault_va);
 		panic("page fault in kernel \n");
 	}
 	// We've already handled kernel-mode exceptions, so if we get here,

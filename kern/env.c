@@ -6,6 +6,7 @@
 #include <inc/string.h>
 #include <inc/assert.h>
 #include <inc/elf.h>
+#include <inc/debug.h>
 
 #include <kern/env.h>
 #include <kern/pmap.h>
@@ -21,8 +22,8 @@ static struct Env *env_free_list;	// Free environment list
 
 #define ENVGENSHIFT	12		// >= LOGNENV
 
-#define DEBUG 0
-#if DEBUG
+
+#if DEBUG_E
 #define DEBUG_LOG(format,arg...) \
 cprintf("[DEBUG][E]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
 #else
@@ -437,6 +438,7 @@ env_create(uint8_t *binary, enum EnvType type)
 	}
 
 	load_icode(e,binary);
+	DEBUG_LOG("\n");
 	e->env_type = type;
 }
 
@@ -578,9 +580,11 @@ env_run(struct Env *e)
 	e->env_status = ENV_RUNNING;
 	e->env_runs++;
 
+	unlock_kernel();
+	
 	lcr3(PADDR(e->env_pgdir));
 	//DEBUG_LOG("hello>>>\n");
-	
+	//print_regs(&e->env_tf.tf_regs);
 	env_pop_tf(&e->env_tf);
 
 	//panic("env_run not yet implemented");
