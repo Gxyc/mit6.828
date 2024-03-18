@@ -38,9 +38,9 @@ sched_yield(void)
 
 	// LAB 4: Your code here.
 	do{
-		DEBUG_LOG("curenv id[%x]\n",curenv);
+		// DEBUG_LOG("curenv id[%x]\n",curenv);
 		envid_t cur_eid = curenv ? ENVX(curenv->env_id) + 1 : 0;
-		DEBUG_LOG("\n");
+		// DEBUG_LOG("curenv id[%x]\n",cur_eid);
 		for(envid_t i = cur_eid;i < NENV;i++){
 			if(envs[i].env_status == ENV_RUNNABLE){
 				DEBUG_LOG("run [%x]\n",envs[i].env_id);
@@ -48,19 +48,19 @@ sched_yield(void)
 				break;
 			}
 		}
-		// for(envid_t i = 0;i < cur_eid;i ++){
-		// 	if(envs[i].env_status == ENV_RUNNABLE){
-		// 		DEBUG_LOG("run [%x]\n",envs[i].env_id);
-		// 		env_run(&envs[i]);
-		// 		break;
-		// 	}
-		// }
+		for(envid_t i = 0;i < cur_eid;i ++){
+			if(envs[i].env_status == ENV_RUNNABLE){
+				DEBUG_LOG("run [%x]\n",envs[i].env_id);
+				env_run(&envs[i]);
+				break;
+			}
+		}
 		if(curenv && curenv->env_status == ENV_RUNNING){
 			DEBUG_LOG("run [%x]\n",curenv->env_id);
 			env_run(curenv);
 		}
 	}while(0);
-	DEBUG_LOG("\n");
+	DEBUG_LOG("end\n");
 	// sched_halt never returns
 	sched_halt();
 }
@@ -106,7 +106,7 @@ sched_halt(void)
 		"pushl $0\n"
 		"pushl $0\n"
 		// Uncomment the following line after completing exercise 13
-		//"sti\n"
+		"sti\n"
 		"1:\n"
 		"hlt\n"
 		"jmp 1b\n"

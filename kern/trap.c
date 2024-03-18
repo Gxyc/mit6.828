@@ -99,22 +99,60 @@ trap_init(void)
 
 	void syscall_handler();
 
-	SETGATE(idt[T_DIVIDE],1,GD_KT,divide_handler,0);
-	SETGATE(idt[T_DEBUG],1,GD_KT,debug_handler,3);
-	SETGATE(idt[T_BRKPT],1,GD_KT,breakpoint_handler,3);
-	SETGATE(idt[T_OFLOW],1,GD_KT,overflow_handler,0);
-	SETGATE(idt[T_BOUND],1,GD_KT,bounds_handler,0);
-	SETGATE(idt[T_ILLOP],1,GD_KT,illop_handler,0);
-	SETGATE(idt[T_DEVICE],1,GD_KT,device_handler,0);
-	SETGATE(idt[T_DBLFLT],1,GD_KT,doubleflt_handler,0);
-	SETGATE(idt[T_TSS],1,GD_KT,tss_handler,0);
-	SETGATE(idt[T_SEGNP],1,GD_KT,segmentnp_handler,0);
-	SETGATE(idt[T_STACK],1,GD_KT,stackexp_handler,0);
-	SETGATE(idt[T_GPFLT],1,GD_KT,gprotectflt_handler,0);
-	SETGATE(idt[T_PGFLT],1,GD_KT,pagefault_handler,0);
-	SETGATE(idt[T_FPERR],1,GD_KT,floaterr_handler,0);
+	void IRQsHandler0();
+    void IRQsHandler1();
+    void IRQsHandler2();
+    void IRQsHandler3();
+    void IRQsHandler4();
+    void IRQsHandler5();
+    void IRQsHandler6();
+    void IRQsHandler7();
+    void IRQsHandler8();
+    void IRQsHandler9();
+    void IRQsHandler10();
+    void IRQsHandler11();
+    void IRQsHandler12();
+    void IRQsHandler13();
+    void IRQsHandler14();
+    void IRQsHandler15();
 
-	SETGATE(idt[T_SYSCALL],1,GD_KT,syscall_handler,3);
+	SETGATE(idt[T_DIVIDE],0,GD_KT,divide_handler,0);
+	SETGATE(idt[T_DEBUG],0,GD_KT,debug_handler,3);
+	SETGATE(idt[T_BRKPT],0,GD_KT,breakpoint_handler,3);
+	SETGATE(idt[T_OFLOW],0,GD_KT,overflow_handler,0);
+	SETGATE(idt[T_BOUND],0,GD_KT,bounds_handler,0);
+	SETGATE(idt[T_ILLOP],0,GD_KT,illop_handler,0);
+	SETGATE(idt[T_DEVICE],0,GD_KT,device_handler,0);
+	SETGATE(idt[T_DBLFLT],0,GD_KT,doubleflt_handler,0);
+	SETGATE(idt[T_TSS],0,GD_KT,tss_handler,0);
+	SETGATE(idt[T_SEGNP],0,GD_KT,segmentnp_handler,0);
+	SETGATE(idt[T_STACK],0,GD_KT,stackexp_handler,0);
+	SETGATE(idt[T_GPFLT],0,GD_KT,gprotectflt_handler,0);
+	SETGATE(idt[T_PGFLT],0,GD_KT,pagefault_handler,0);
+	SETGATE(idt[T_FPERR],0,GD_KT,floaterr_handler,0);
+
+	SETGATE(idt[T_SYSCALL],0,GD_KT,syscall_handler,3);
+
+	// trap里检查中断未关 idt里都设为0避免互相干扰及过不了断言
+	// 或在_alltraps里关中断 但断言注释中不让加cli
+
+	SETGATE(idt[IRQ_OFFSET+IRQ_TIMER], 0, GD_KT, IRQsHandler0, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_KBD], 0, GD_KT, IRQsHandler1, 0);
+    SETGATE(idt[IRQ_OFFSET+2], 0, GD_KT, IRQsHandler2, 0);
+    SETGATE(idt[IRQ_OFFSET+3], 0, GD_KT, IRQsHandler3, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_SERIAL], 0, GD_KT, IRQsHandler4, 0);
+    SETGATE(idt[IRQ_OFFSET+5], 0, GD_KT, IRQsHandler5, 0);
+    SETGATE(idt[IRQ_OFFSET+6], 0, GD_KT, IRQsHandler6, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_SPURIOUS], 0, GD_KT, IRQsHandler7, 0);
+    SETGATE(idt[IRQ_OFFSET+8], 0, GD_KT, IRQsHandler8, 0);
+    SETGATE(idt[IRQ_OFFSET+9], 0, GD_KT, IRQsHandler9, 0);
+    SETGATE(idt[IRQ_OFFSET+10], 0, GD_KT, IRQsHandler10, 0);
+    SETGATE(idt[IRQ_OFFSET+11], 0, GD_KT, IRQsHandler11, 0);
+    SETGATE(idt[IRQ_OFFSET+12], 0, GD_KT, IRQsHandler12, 0);
+    SETGATE(idt[IRQ_OFFSET+13], 0, GD_KT, IRQsHandler13, 0);
+    SETGATE(idt[IRQ_OFFSET+IRQ_IDE], 0, GD_KT, IRQsHandler14, 0);
+    SETGATE(idt[IRQ_OFFSET+15], 0, GD_KT, IRQsHandler15, 0);
+
 	
 	// Per-CPU setup 
 	trap_init_percpu();
@@ -254,6 +292,11 @@ trap_dispatch(struct Trapframe *tf)
 	// Handle clock interrupts. Don't forget to acknowledge the
 	// interrupt using lapic_eoi() before calling the scheduler!
 	// LAB 4: Your code here.
+	if(tf->tf_trapno == (IRQ_OFFSET + IRQ_TIMER)){
+		lapic_eoi();
+		sched_yield();
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);
@@ -373,7 +416,7 @@ page_fault_handler(struct Trapframe *tf)
 	//   (the 'tf' variable points at 'curenv->env_tf').
 
 	// LAB 4: Your code here.
-	cprintf("addr [0x%x]\n",fault_va);
+	DEBUG_LOG("addr [0x%x]\n",fault_va);
 	if(curenv->env_pgfault_upcall){
 		uintptr_t stack_top = UXSTACKTOP;
 		

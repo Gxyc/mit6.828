@@ -170,7 +170,7 @@ fork(void)
 	if(err < 0)
 		panic("sys_env_set_status err[%d]", err);
 	
-	DEBUG_LOG("EID [%x] v[%c]\n",eid,(*(char*)0xeebfdf74));
+	DEBUG_LOG("EID [%x]\n",eid);
 	return eid;
 	// panic("fork not implemented");
 }

@@ -5,4 +5,6 @@
 #define DEBUG_LAPIC     0
 #define DEBUG_INIT      0
 #define DEBUG_SCHED     0
-#define DEBUG_FORK      1
+#define DEBUG_FORK      0
+#define DEBUG_SYSCALL   0
+#define DEBUG_IPC       0
