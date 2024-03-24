@@ -92,7 +92,10 @@ duppage(envid_t envid, unsigned pn)
 	int perm = PTE_P | PTE_U;
 
 	DEBUG_LOG("src eid[%x] dst eid[%x] pn[%x]\n",eid,envid,pn);
-	if((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)){
+	if(uvpt[pn] & PTE_SHARE){
+		sys_page_map(0,va,envid,va,PTE_SYSCALL);
+	}
+	else if((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)){
 		r = sys_page_map(eid,(void*)va,envid,(void*)va,perm|PTE_COW);
 		if(r < 0){
 			panic("duppage <%d> err[%d]",__LINE__,r);

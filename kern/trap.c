@@ -259,7 +259,7 @@ print_regs(struct PushRegs *regs)
 static void
 trap_dispatch(struct Trapframe *tf)
 {
-	DEBUG_LOG("trap count[%d]\n",tf->tf_trapno);
+	// DEBUG_LOG("trap count[%d]\n",tf->tf_trapno);
 	// Handle processor exceptions.
 	// LAB 3: Your code here.
 	switch (tf->tf_trapno)
@@ -300,6 +300,16 @@ trap_dispatch(struct Trapframe *tf)
 
 	// Handle keyboard and serial interrupts.
 	// LAB 5: Your code here.
+	if(tf->tf_trapno == (IRQ_OFFSET + IRQ_KBD)){
+		DEBUG_LOG("KBD \n");
+		kbd_intr();
+		return;
+	}
+	if(tf->tf_trapno == (IRQ_OFFSET + IRQ_SERIAL)){
+		DEBUG_LOG("serial \n");
+		serial_intr();
+		return;
+	}
 
 	// Unexpected trap: The user process or the kernel has a bug.
 	print_trapframe(tf);

@@ -8,3 +8,7 @@
 #define DEBUG_FORK      0
 #define DEBUG_SYSCALL   0
 #define DEBUG_IPC       0
+#define DEBUG_BUFCACHE  0
+#define DEBUG_FS        0
+#define DEBUG_FILE      0
+#define DEBUG_SPAWN     0

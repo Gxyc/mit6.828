@@ -154,6 +154,7 @@ mem_init(void)
 	//////////////////////////////////////////////////////////////////////
 	// create initial page directory.
 	kern_pgdir = (pde_t *) boot_alloc(PGSIZE);
+	DEBUG_LOG("kern_pgdir[0x%x]\n",kern_pgdir);
 	memset(kern_pgdir, 0, PGSIZE);
 	//cprintf("[s] k_dir0x%x\n",kern_pgdir);
 	//////////////////////////////////////////////////////////////////////
