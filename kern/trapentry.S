@@ -47,10 +47,58 @@
 /*
  * Lab 3: Your code here for generating entry points for the different traps.
  */
+TRAPHANDLER_NOEC(divide_handler,T_DIVIDE)	//0
+TRAPHANDLER_NOEC(debug_handler,T_DEBUG)	//1
 
+TRAPHANDLER_NOEC(breakpoint_handler,T_BRKPT)	//3
+TRAPHANDLER_NOEC(overflow_handler,T_OFLOW)	//4
+TRAPHANDLER_NOEC(bounds_handler,T_BOUND)	//5
+TRAPHANDLER_NOEC(illop_handler,T_ILLOP)	//6
+TRAPHANDLER_NOEC(device_handler,T_DEVICE)	//7
+TRAPHANDLER(doubleflt_handler,T_DBLFLT)		//8
+TRAPHANDLER(tss_handler,T_TSS)			//10
+TRAPHANDLER(segmentnp_handler,T_SEGNP)		//11
+TRAPHANDLER(stackexp_handler,T_STACK)		//12
+TRAPHANDLER(gprotectflt_handler,T_GPFLT)		//13
+TRAPHANDLER(pagefault_handler,T_PGFLT)		//14
+
+TRAPHANDLER_NOEC(floaterr_handler,T_FPERR)	//16
+
+TRAPHANDLER_NOEC(syscall_handler,T_SYSCALL)	//48
+
+TRAPHANDLER_NOEC(IRQsHandler0, IRQ_OFFSET+IRQ_TIMER)
+TRAPHANDLER_NOEC(IRQsHandler1, IRQ_OFFSET+IRQ_KBD)
+TRAPHANDLER_NOEC(IRQsHandler2, IRQ_OFFSET+2)
+TRAPHANDLER_NOEC(IRQsHandler3, IRQ_OFFSET+3)
+TRAPHANDLER_NOEC(IRQsHandler4, IRQ_OFFSET+IRQ_SERIAL)
+TRAPHANDLER_NOEC(IRQsHandler5, IRQ_OFFSET+5)
+TRAPHANDLER_NOEC(IRQsHandler6, IRQ_OFFSET+6)
+TRAPHANDLER_NOEC(IRQsHandler7, IRQ_OFFSET+IRQ_SPURIOUS)
+TRAPHANDLER_NOEC(IRQsHandler8, IRQ_OFFSET+8)
+TRAPHANDLER_NOEC(IRQsHandler9, IRQ_OFFSET+9)
+TRAPHANDLER_NOEC(IRQsHandler10, IRQ_OFFSET+10)
+TRAPHANDLER_NOEC(IRQsHandler11, IRQ_OFFSET+11)
+TRAPHANDLER_NOEC(IRQsHandler12, IRQ_OFFSET+12)
+TRAPHANDLER_NOEC(IRQsHandler13, IRQ_OFFSET+13)
+TRAPHANDLER_NOEC(IRQsHandler14, IRQ_OFFSET+IRQ_IDE)
+TRAPHANDLER_NOEC(IRQsHandler15, IRQ_OFFSET+15)
 
 
 /*
  * Lab 3: Your code here for _alltraps
  */
 
+_alltraps:
+	pushl %ds
+	pushl %es
+	pushal
+	
+	pushl $GD_KD
+	popl %ds
+	
+	pushl $GD_KD
+	popl %es
+	
+	pushl %esp
+	/*cli*/
+	call trap

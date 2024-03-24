@@ -2,6 +2,15 @@
 #include <inc/string.h>
 #include <inc/lib.h>
 
+#include <inc/debug.h>
+
+#if DEBUG_FILE
+#define DEBUG_LOG(format,arg...) \
+cprintf("[DEBUG][FILE]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
+#else
+#define DEBUG_LOG(format,arg...)
+#endif
+
 #define debug 0
 
 union Fsipc fsipcbuf __attribute__((aligned(PGSIZE)));
@@ -141,7 +150,30 @@ devfile_write(struct Fd *fd, const void *buf, size_t n)
 	// remember that write is always allowed to write *fewer*
 	// bytes than requested.
 	// LAB 5: Your code here
-	panic("devfile_write not implemented");
+	int r = 0;
+	// size_t count = 0;
+	DEBUG_LOG("ipc write n[0x%x][%d]\n",n,n);
+	fsipcbuf.write.req_fileid = fd->fd_file.id;
+	fsipcbuf.write.req_n = n;
+	memmove(fsipcbuf.write.req_buf,buf,n);
+	r = fsipc(FSREQ_WRITE,NULL);
+	return r;
+
+	// size_t count = 0;
+	// fsipcbuf.write.req_fileid = fd->fd_file.id;
+	// while(count < n){
+	// 	size_t size = sizeof(fsipcbuf.write.req_buf);
+	// 	size = (n-count) > size ? size : (n-count);
+	// 	fsipcbuf.write.req_n = size;
+	// 	memmove(fsipcbuf.write.req_buf,buf+count,size);
+	// 	r = fsipc(FSREQ_WRITE,NULL);
+	// 	if(r < 0)
+	// 		return r;
+	// 	count += r;
+	// }
+	// return count;
+
+	// panic("devfile_write not implemented");
 }
 
 static int

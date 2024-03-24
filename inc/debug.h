@@ -1,0 +1,14 @@
+#define DEBUG_P         0
+#define DEBUG_E         0
+#define DEBUG_T         0
+#define DEBUG_S         0
+#define DEBUG_LAPIC     0
+#define DEBUG_INIT      0
+#define DEBUG_SCHED     0
+#define DEBUG_FORK      0
+#define DEBUG_SYSCALL   0
+#define DEBUG_IPC       0
+#define DEBUG_BUFCACHE  0
+#define DEBUG_FS        0
+#define DEBUG_FILE      0
+#define DEBUG_SPAWN     0

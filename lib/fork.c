@@ -2,6 +2,14 @@
 
 #include <inc/string.h>
 #include <inc/lib.h>
+#include <inc/debug.h>
+
+#if DEBUG_FORK
+#define DEBUG_LOG(format,arg...) \
+cprintf("[DEBUG][fork]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
+#else
+#define DEBUG_LOG(format,arg...)
+#endif
 
 // PTE_COW marks copy-on-write page table entries.
 // It is one of the bits explicitly allocated to user processes (PTE_AVAIL).
@@ -25,7 +33,14 @@ pgfault(struct UTrapframe *utf)
 	//   (see <inc/memlayout.h>).
 
 	// LAB 4: Your code here.
-
+	addr = ROUNDDOWN(addr,PGSIZE);
+	if(!(err & FEC_WR)){
+		panic("%s not write",__FUNCTION__);
+	}
+	if(!(uvpt[(uintptr_t)PGNUM(addr)] & PTE_COW)){
+		panic("%s not cow",__FUNCTION__);
+	}
+	
 	// Allocate a new page, map it at a temporary location (PFTEMP),
 	// copy the data from the old page to the new page, then move the new
 	// page to the old page's address.
@@ -33,8 +48,26 @@ pgfault(struct UTrapframe *utf)
 	//   You should make three system calls.
 
 	// LAB 4: Your code here.
+	envid_t eid = sys_getenvid();
+	DEBUG_LOG("eid[0x%x] addr [0x%08x]\n",eid,addr);
 
-	panic("pgfault not implemented");
+	r = sys_page_map(eid,(void*)addr,eid,(void*)PFTEMP,PTE_P|PTE_U);
+	if(r < 0){
+		panic("%s map err[%d]",__FUNCTION__,r);
+	}
+
+	r = sys_page_alloc(eid,addr,PTE_U|PTE_P|PTE_W);
+	if(r < 0){
+		panic("%s alloc err[%d]",__FUNCTION__,r);
+	}
+
+	memcpy((void*)addr,(void*)PFTEMP,PGSIZE);
+
+	r = sys_page_unmap(eid,(void*)PFTEMP);
+	if(r < 0){
+		panic("%s unmap err[%d]",__FUNCTION__,r);
+	}
+	// panic("pgfault not implemented");
 }
 
 //
@@ -54,7 +87,32 @@ duppage(envid_t envid, unsigned pn)
 	int r;
 
 	// LAB 4: Your code here.
-	panic("duppage not implemented");
+	envid_t eid = sys_getenvid();
+	uintptr_t va = pn * PGSIZE;
+	int perm = PTE_P | PTE_U;
+
+	DEBUG_LOG("src eid[%x] dst eid[%x] pn[%x]\n",eid,envid,pn);
+	if(uvpt[pn] & PTE_SHARE){
+		sys_page_map(0,va,envid,va,PTE_SYSCALL);
+	}
+	else if((uvpt[pn] & PTE_W) || (uvpt[pn] & PTE_COW)){
+		r = sys_page_map(eid,(void*)va,envid,(void*)va,perm|PTE_COW);
+		if(r < 0){
+			panic("duppage <%d> err[%d]",__LINE__,r);
+		}
+		r = sys_page_map(eid,(void*)va,eid,(void*)va,perm|PTE_COW);
+		if(r < 0){
+			panic("duppage <%d> err[%d]",__LINE__,r);
+		}
+	}
+	else{
+		r = sys_page_map(eid,(void*)va,envid,(void*)va,perm);
+		if(r < 0){
+			panic("duppage <%d> err[%d]",__LINE__,r);
+		}
+	}
+
+	// panic("duppage not implemented");
 	return 0;
 }
 
@@ -78,7 +136,46 @@ envid_t
 fork(void)
 {
 	// LAB 4: Your code here.
-	panic("fork not implemented");
+	int err = 0;
+
+	extern void _pgfault_upcall();
+	set_pgfault_handler(pgfault);
+	envid_t eid = sys_exofork();
+	
+	if(eid < 0){
+		panic("sys_exofork err %d",eid);
+	}
+	if(0 == eid){
+		thisenv = &envs[ENVX(sys_getenvid())];
+		return 0;
+	}
+
+	uint32_t addr;
+	for (addr = 0; addr < USTACKTOP; addr += PGSIZE) {
+		if ((uvpd[PDX(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_P)
+			&& (uvpt[PGNUM(addr)] & PTE_U)) {
+			err = duppage(eid, PGNUM(addr));
+			if(err < 0){
+				panic("duppage err[%d]",err);
+			}
+		}
+	}
+
+	err = sys_page_alloc(eid, (void *)(UXSTACKTOP-PGSIZE), PTE_P | PTE_W | PTE_U);
+	if(err < 0)
+		panic("sys_page_alloc err[%d]", err);
+	
+	err = sys_env_set_pgfault_upcall(eid, _pgfault_upcall);
+	if(err < 0)
+		panic("sys_env_set_pgfault_upcall err[%d]", err);
+	
+	err = sys_env_set_status(eid, ENV_RUNNABLE);
+	if(err < 0)
+		panic("sys_env_set_status err[%d]", err);
+	
+	DEBUG_LOG("EID [%x]\n",eid);
+	return eid;
+	// panic("fork not implemented");
 }
 
 // Challenge!

@@ -1,5 +1,13 @@
 
 #include "fs.h"
+#include <inc/debug.h>
+
+#if DEBUG_BUFCACHE
+#define DEBUG_LOG(format,arg...) \
+cprintf("[DEBUG][BC]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
+#else
+#define DEBUG_LOG(format,arg...)
+#endif
 
 // Return the virtual address of this disk block.
 void*
@@ -29,6 +37,7 @@ va_is_dirty(void *va)
 static void
 bc_pgfault(struct UTrapframe *utf)
 {
+	// DEBUG_LOG("\n");
 	void *addr = (void *) utf->utf_fault_va;
 	uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
 	int r;
@@ -48,6 +57,12 @@ bc_pgfault(struct UTrapframe *utf)
 	// the disk.
 	//
 	// LAB 5: you code here:
+	DEBUG_LOG("blockno[0x%x] addr[0x%x] \n",blockno,addr);
+	addr = ROUNDDOWN(addr,BLKSIZE);
+	sys_page_alloc(0,addr,PTE_P|PTE_U|PTE_W);
+	if((r = ide_read(blockno*BLKSECTS,addr,BLKSECTS)) < 0){
+		panic("%s ide_read err[%d]",__FUNCTION__,r);
+	}
 
 	// Clear the dirty bit for the disk block page since we just read the
 	// block from disk
@@ -71,13 +86,29 @@ bc_pgfault(struct UTrapframe *utf)
 void
 flush_block(void *addr)
 {
+	DEBUG_LOG("\n");
 	uint32_t blockno = ((uint32_t)addr - DISKMAP) / BLKSIZE;
 
 	if (addr < (void*)DISKMAP || addr >= (void*)(DISKMAP + DISKSIZE))
 		panic("flush_block of bad va %08x", addr);
 
 	// LAB 5: Your code here.
-	panic("flush_block not implemented");
+	if(!va_is_mapped(addr)){
+		return;
+	}
+	if(!va_is_dirty(addr)){
+		return;
+	}
+	addr = ROUNDDOWN(addr,BLKSIZE);
+	int err = 0;
+	if((err = ide_write(blockno*BLKSECTS,addr,BLKSECTS)) < 0){
+		panic("ide_write err[%d] \n",err);
+	}
+	if((err = sys_page_map(0, addr, 0, addr, uvpt[PGNUM(addr)] & PTE_SYSCALL)) < 0){
+		panic("%S sys_page_map err[%d]",__FUNCTION__,err);
+	}
+
+	// panic("flush_block not implemented");
 }
 
 // Test that the block cache works, by smashing the superblock and
@@ -143,6 +174,7 @@ bc_init(void)
 {
 	struct Super super;
 	set_pgfault_handler(bc_pgfault);
+	DEBUG_LOG("\n");
 	check_bc();
 
 	// cache the super block by reading it once

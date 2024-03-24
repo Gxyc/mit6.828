@@ -1,6 +1,15 @@
 #include <inc/lib.h>
 #include <inc/elf.h>
 
+#include <inc/debug.h>
+
+#if DEBUG_SPAWN
+#define DEBUG_LOG(format,arg...) \
+cprintf("[DEBUG][spawn]%s <%d>--" format,__FUNCTION__,__LINE__,##arg)
+#else
+#define DEBUG_LOG(format,arg...)
+#endif
+
 #define UTEMP2USTACK(addr)	((void*) (addr) + (USTACKTOP - PGSIZE) - UTEMP)
 #define UTEMP2			(UTEMP + PGSIZE)
 #define UTEMP3			(UTEMP2 + PGSIZE)
@@ -302,6 +311,13 @@ static int
 copy_shared_pages(envid_t child)
 {
 	// LAB 5: Your code here.
+	DEBUG_LOG("\n");
+	uint32_t addr;
+	for(addr = 0;addr < UTOP;addr+=PGSIZE){
+		if((uvpd[PDX(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_P) && (uvpt[PGNUM(addr)] & PTE_SHARE)){
+			sys_page_map(0,addr,child,addr,(uvpt[PGNUM(addr)] & PTE_SYSCALL));
+		}
+	}
 	return 0;
 }
 
